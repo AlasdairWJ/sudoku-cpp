@@ -88,7 +88,6 @@ void next_free_pos(board_t& board, int& pos_x, int& pos_y)
 				pos_y = y;
 				return;
 			}
-	puts("bap");
 }
 
 }
