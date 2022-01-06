@@ -2,15 +2,18 @@
 #define __SUDOKU_H
 
 #include <array>
+#include <iostream>
 
 namespace sudoku
 {
 
-using board_t = std::array<std::array<int, 9>, 9>;
+using Board = std::array<std::array<int, 9>, 9>;
 
-void print(const board_t& board);
-bool solve(board_t& the_board);
+bool solve(Board& the_board);
 
 }
+
+std::istream& operator>>(std::istream& is, sudoku::Board& board);
+std::ostream& operator<<(std::ostream& os, const sudoku::Board& board);
 
 #endif __SUDOKU_H

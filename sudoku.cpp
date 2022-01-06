@@ -1,7 +1,7 @@
 #include "sudoku.h"
 
-#include <cstdio>
 #include <vector>
+#include <string>
 
 namespace sudoku
 {
@@ -9,14 +9,14 @@ namespace sudoku
 namespace
 {
 
-using options_t = std::array<std::array<unsigned, 9>, 9>;
+using Options = std::array<std::array<unsigned, 9>, 9>;
 
-void clear_option(options_t& options, int x, int y, int digit)
+void clear_option(Options& options, const int x, const int y, const int digit)
 {
-	options[y][x] &= ~(1 << digit);
+	options[y][x] &= ~(1u << digit);
 }
 
-void place_digit(board_t& board, options_t& options, int x, int y, int digit)
+void place_digit(Board& board, Options& options, const int x, const int y, const int digit)
 {
 	board[y][x] = digit;
 
@@ -29,32 +29,21 @@ void place_digit(board_t& board, options_t& options, int x, int y, int digit)
 	}
 }
 
-bool has_option(const options_t& options, int x, int y, int digit)
+bool has_option(const Options& options, const int x, const int y, const int digit)
 {
 	return (options[y][x] & (1 << digit)) != 0;
 }
 
-bool has_single_option(const options_t& options, int x, int y, int& digit)
+bool has_single_option(const Options& options, const int x, const int y, int& digit)
 {
-	for (int d = 1; d < 10; d++)
-		if (options[y][x] == (1 << d))
-		{
-			digit = d;
+	for (digit = 1; digit < 10; digit++)
+		if (options[y][x] == (1 << digit))
 			return true;
-		}
 	return false;
 }
 
-bool is_solved(const board_t& board)
-{
-	for (int y = 0; y < 9; y++)
-		for (int x = 0; x < 9; x++)
-			if (board[y][x] == 0)
-				return false;
-	return true;
-}
 
-bool is_solvable(const board_t& board, const options_t& options)
+bool is_solvable(const Board& board, const Options& options)
 {
 	for (int y = 0; y < 9; y++)
 		for (int x = 0; x < 9; x++)
@@ -63,40 +52,39 @@ bool is_solvable(const board_t& board, const options_t& options)
 	return true;
 }
 
-bool do_eliminations(board_t& board, options_t& options)
+void do_eliminations(Board& board, Options& options)
 {
-	for (int y = 0; y < 9; y++)
-		for (int x = 0; x < 9; x++)
-		{
-			int digit;
-			if (board[y][x] == 0 && has_single_option(options, x, y, digit))
-			{
-				place_digit(board, options, x, y, digit);
-				return true;
-			}
-		}
-	return false;
+	bool any_changes;
+	do
+	{
+		any_changes = false;
+		for (int y = 0; y < 9; y++)
+			for (int x = 0; x < 9; x++)
+				if (int digit; board[y][x] == 0 && has_single_option(options, x, y, digit))
+				{
+					place_digit(board, options, x, y, digit);
+					any_changes = true;
+				}
+	}
+	while (any_changes);
 }
 
-void next_free_pos(board_t& board, int& pos_x, int& pos_y)
+bool try_get_next_free_pos(Board& board, int& x, int& y)
 {
-	for (int y = 0; y < 9; y++)
-		for (int x = 0; x < 9; x++)
+	for (y = 0; y < 9; y++)
+		for (x = 0; x < 9; x++)
 			if (board[y][x] == 0)
-			{
-				pos_x = x;
-				pos_y = y;
-				return;
-			}
+				return true;
+	return false;
 }
 
 }
 
 // ---------------------------------------------------------
 
-bool solve(board_t& the_board)
+bool solve(Board& the_board)
 {
-	options_t the_options;
+	Options the_options;
 
 	for (int y = 0; y < 9; y++)
 		for (int x = 0; x < 9; x++)
@@ -104,73 +92,88 @@ bool solve(board_t& the_board)
 
 	for (int y = 0; y < 9; y++)
 		for (int x = 0; x < 9; x++)
-		{
-			const int digit = the_board[y][x];
-			if (digit != 0)
+			if (const int digit = the_board[y][x]; digit != 0)
 				place_digit(the_board, the_options, x, y, digit);
-		}
 
-	std::vector<std::pair<board_t, options_t>> current_states;
+	std::vector<std::pair<Board, Options>> current_states;
 	current_states.emplace_back(the_board, the_options);
 
 	while (!current_states.empty())
 	{
-		std::vector<std::pair<board_t, options_t>> next_states;
+		std::vector<std::pair<Board, Options>> next_states;
 
-		for (auto& pair : current_states)
+		for (auto& [board, options] : current_states)
 		{
-			auto& board = pair.first;
-			auto& options = pair.second;
-
-			while (do_eliminations(board, options));
-
-			if (is_solved(board))
-			{
-				the_board = board;
-				return true;
-			}
+			do_eliminations(board, options);	
 
 			if (!is_solvable(board, options))
 				continue;
 
-			int x, y;
-			next_free_pos(board, x, y);
-			for (int d = 1; d < 10; d++)
-				if (has_option(options, x, y, d))
-				{
-					auto board_copy = board;
-					auto options_copy = options;
-					place_digit(board_copy, options_copy, x, y, d);
-					next_states.emplace_back(board_copy, options_copy);
-				}
-
+			if (int x, y; try_get_next_free_pos(board, x, y))
+			{
+				for (int d = 1; d < 10; d++)
+					if (has_option(options, x, y, d))
+					{
+						auto board_copy = board;
+						auto options_copy = options;
+						place_digit(board_copy, options_copy, x, y, d);
+						next_states.emplace_back(board_copy, options_copy);
+					}
+			}
+			else
+			{
+				the_board = board;
+				return true;
+			}
 		}
 
-		std::swap(current_states, next_states);
+		current_states.swap(next_states);
 	}
 
 	return false;
 }
 
+}
+
 // ---------------------------------------------------------
 
-void print(const board_t& board)
+std::istream& operator>>(std::istream& is, sudoku::Board& board)
+{
+	std::string line;
+	for (int y = 0; y < 9; y++)
+	{
+		std::getline(is, line);
+
+		if (y == 3 || y == 6)
+			std::getline(is, line);
+
+		for (int x = 0; x < 9; x++)
+		{
+			const char digit = line[x + x/3];
+			board[y][x] = (digit == ' ' ? 0 : static_cast<int>(digit - '0'));
+		}
+	}
+	return is;
+}
+
+std::ostream& operator<<(std::ostream& os, const sudoku::Board& board)
 {
 	for (int y = 0; y < 9; y++)
 	{
 		if (y == 3 || y == 6)
-			puts("------+-------+------");
+			os << "---+---+---" << std::endl;
 
 		for (int x = 0; x < 9; x++)
 		{
 			if (x == 3 || x == 6)
-				printf("| ");
+				os.put('|');
 
 			const int digit = board[y][x];
-			printf("%c ", digit == 0 ? ' ' : digit + '0');
+			os.put(digit == 0 ? ' ' : digit + '0');
 		}
-		putchar('\n');
+		
+		if (y != 8)
+			os << std::endl;
 	}
-}
-
+	return os;
 }
